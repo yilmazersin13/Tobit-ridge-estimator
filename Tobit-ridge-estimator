@@ -1,0 +1,118 @@
+#--------------------------------TOBIT RIDGE ESTIMATOR--------------------------------------------
+tobitridge=function(x,y,lam,k){
+  #----Necessary Function of Standard Normal Distribution for Tobit (See Khalaf et. al., 2010)----
+  ncfunc=function(x,beta,sigma){
+    val<-dnorm((x%*%beta)/sigma)/(1-pnorm((x%*%beta)/sigma))
+    return(val)
+  }
+  #---------------Variance of the Model (See Munoz, 2009)-----------------------------------------
+  sigmaf=function(x,y,n1){
+    sigmasq<-(1/n1)*(t(y)%*%(y-x%*%beta))
+    return(sigmasq)
+  }
+  #-----------------------------------------------------------------------------------------------
+  zz<-dim(x)
+  p<-zz[2]
+  val<-0
+  iter<-50
+  ys<-0
+  yu<-0
+  #x<-matrix(0,n,3)
+  xs<-matrix(0,n,3)
+  xu<-matrix(0,n,3)
+  x0<-matrix(0,n,3)
+  
+  if (y[1]<0){
+    y[1]<-(-1)*y[1]
+  }
+  for (i in 1:n){
+    if(y[i]>0){
+      ys[i]<-y[i]
+      xs[i,1]<-x[i,1]
+      xs[i,2]<-x[i,2]
+      xs[i,3]<-x[i,3]
+      x0[i,1]<-NA
+      x0[i,2]<-NA
+      x0[i,3]<-NA
+    }
+    else{
+      ys[i]<-0
+      x0[i,1]<-x[i,1]
+      x0[i,2]<-x[i,2]
+      x0[i,3]<-x[i,3]
+    }
+  }
+  
+  for (i in 1:n){
+    if(ys[i]!=0){
+      yu[i]<-ys[i]
+      xu[i,1]<-xs[i,1]
+      xu[i,2]<-xs[i,2]
+      xu[i,3]<-xs[i,3]
+    }
+    else{
+      yu[i]<-NA
+      xu[i,1]<-NA
+      xu[i,2]<-NA
+      xu[i,3]<-NA
+    }
+  }
+  x1<-xu[,1]
+  x2<-xu[,2]
+  x3<-xu[,3]
+  #----------
+  x01<-x0[,1]
+  x02<-x0[,2]
+  x03<-x0[,3]
+  #------------
+  ycl<-yu[!is.na(yu)]
+  
+  x1cl<-x1[!is.na(x1)]
+  x2cl<-x2[!is.na(x2)]
+  x3cl<-x3[!is.na(x3)]
+  
+  x01cl<-x01[!is.na(x01)]
+  x02cl<-x02[!is.na(x02)]
+  x03cl<-x03[!is.na(x03)]
+  
+  xcl<-matrix(0,length(x1),3)
+  xcl<-matrix(c(x1cl,x2cl,x3cl),length(x1cl),3)
+  
+  x0cl<-matrix(0,length(x01),3)
+  x0cl<-matrix(c(x01cl,x02cl,x03cl),length(x01cl),3)
+  #Final MAtrices---------------------------------
+  Y1<-ycl
+  N1<-length(Y1)
+  N0<-n-N1
+  Y1<-ycl
+  X1<-xcl
+  X0<-x0cl
+  msep<-0
+  msep[1]<-9999
+  lambda=lam 
+  betaM<-matrix(0,3,iter+1)
+  betaM[,1]<-c(1,1,1)
+  for (j in 1:iter){
+    sigm<-sigmaf(X1,Y1,N1)
+    for (i1 in 1:n){
+      if(ys[i1]==0){
+        val[i1]<-ncfunc(x[i1,],betaM[,j],sigm)
+      }
+    }
+    valcl<-val[!is.na(val)]
+    valcl<-matrix(c(valcl[2:length(valcl)]),length(valcl)-1,1)
+    btilde<-solve(t(X1)%*%X1+k*diag(p))%*%t(X1)%*%Y1-sigm[1,1]*solve(t(X1)%*%X1+k*diag(p))%*%t(X0)%*%(valcl)
+    betaM[,j+1]<-betaM[,j]+lambda*(btilde-betaM[,j])
+    yp<-x%*%betaM[,j]
+    msep[j+1]<-mean((y-yp)^2)
+    if (msep[j+1]<msep[j]){
+      betahat<-betaM[,j+1]
+    }
+  }
+  yhat<-x%*%betahat
+  ta<-new.env()
+  ta$yhat<-yhat
+  ta$betahat<-betahat
+  ta$mse<-msep
+  return(ta)
+}
